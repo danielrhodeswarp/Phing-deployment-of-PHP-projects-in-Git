@@ -1,0 +1,145 @@
+<?xml version="1.0"?>
+
+<!-- "server" for pre-deploy tests to be run ideally on DEV box!! -->
+
+<project name="phing_lint_server">
+
+<target name="msg">
+	<echo msg="Usage: phing lintandjsmin [Lints .php and .js files. Tests .js (and .css) files for minification safeness]" />
+	<echo msg="Usage: phing lint         [Lints .php and .js files]" />
+	<echo msg="Usage: phing jsmin        [Tests .js (and .css) files for minification safeness]" />
+</target>
+
+<target name="lintandjsmin">
+	<phingcall target="lint" />
+	<phingcall target="jsmin" />
+</target>
+
+<patternset id="common_js_biggies">
+	<exclude name="**/tinymce/**/*.js"/>
+	<exclude name="**/tiny_mce/**/*.js"/>
+	<exclude name="**/scriptaculous/**/*.js"/>
+	<exclude name="**/jquery/**/*.js"/>
+</patternset>
+
+<!-- clients can do like this to ignore some common defaults -->
+<!--
+<patternset id="js_for_minifiers_to_ignore" refid="common_js_biggies">
+</patternset>
+-->
+<!-- OR (but not, unfortunately, *and*) specify their own like this -->
+<!--
+<patternset id="js_for_minifiers_to_ignore">
+	<exclude name="**/something/**/*.js"/>
+</patternset>
+-->
+<!-- hmmm, actually none of the above is working so we
+are just gonna explicitly have the patternset
+in each client :-( -->
+
+<!-- default to "ignore nothing" -->
+<!--
+<patternset id="js_for_minifiers_to_ignore">
+</patternset>
+-->
+
+<target name="jsmin"><!--do EVERYTHING (for testing)-->
+	
+	<phingcall target="jsmin_jsmin"/>
+	<phingcall target="jsmin_yui"/>
+	<phingcall target="jsmin_css"/>
+	<phingcall target="report"/>
+	<phingcall target="cleanup"/>
+
+</target>
+
+
+<target name="jsmin_jsmin">
+	<!-- jsMin is a Phing builtin using the jsmin it is bundled with -->
+	<jsMin targetDir="${phing_lint.js_output_folder_jsmin}" failOnError="false" suffix="">
+		<fileset dir="${phing_lint.js_source_folder}">
+			<include name="**/*.js"/>
+			<patternset refid="js_for_minifiers_to_ignore" />
+	    </fileset>
+	</jsMin>
+</target>
+	
+	
+	
+<target name="jsmin_yui">
+	<!-- yuic is NOT a phing builtin. from https://github.com/rchouinard/phing-tasks -->
+	<taskdef name="yuic" classname="phing.tasks.my.YuiCompressorTask" />
+	
+	<yuic targetdir="${phing_lint.js_output_folder_yuic}">
+		<fileset dir="${phing_lint.js_source_folder}">
+			<include name="**/*.js" />
+			<patternset refid="js_for_minifiers_to_ignore" />
+		</fileset>
+	</yuic>
+</target>
+	
+<target name="jsmin_css">
+	<!-- yuic is NOT a phing builtin. from https://github.com/rchouinard/phing-tasks -->
+	<taskdef name="yuic" classname="phing.tasks.my.YuiCompressorTask" />
+	
+	<yuic targetdir="${phing_lint.css_output_folder_yuic}">
+		<fileset dir="${phing_lint.css_source_folder}">
+			<include name="**/*.css" />
+		</fileset>
+	</yuic>
+</target>
+	
+<target name="report">
+	<exec command="du -h -s --apparent-size ${phing_lint.js_source_folder}" outputProperty="du_summary" />
+	<echo>
+${du_summary}
+	</echo>
+	
+	<exec command="du -h -s --apparent-size ${phing_lint.js_output_folder_jsmin} ${phing_lint.js_output_folder_yuic} | sort -n" outputProperty="du_summary" />
+	<echo>
+${du_summary}
+	</echo>
+	
+	<exec command="du -h -s --apparent-size ${phing_lint.css_source_folder}" outputProperty="du_summary" />
+	<echo>
+${du_summary}
+	</echo>
+	
+	<exec command="du -h -s --apparent-size ${phing_lint.css_output_folder_yuic}" outputProperty="du_summary" />
+	<echo>
+${du_summary}
+	</echo>
+</target>
+
+<target name="cleanup">
+	<!-- the idea is to run this script from the development server
+	so let's get rid of the cruft so as not to clutter up the repo -->
+	<delete dir="${phing_lint.js_output_folder_jsmin}" includeemptydirs="true" quiet="true"/>
+	<delete dir="${phing_lint.js_output_folder_yuic}" includeemptydirs="true" quiet="true"/>
+	<delete dir="${phing_lint.css_output_folder_yuic}" includeemptydirs="true" quiet="true"/>
+</target>
+
+
+
+<target name="lint">
+
+<!-- jsllint is a Phing builtin BUT needs jsl (javascriptlint.com) in path -->
+<jsllint  haltonfailure="false" tofile="dodgy_js_files.txt" showwarnings="false" cachefile="jsllint.cache">
+	<fileset dir="${phing_lint.js_source_folder}">
+		<include name="**/*.js"/>
+	</fileset>
+</jsllint>
+
+<!-- phplint is a Phing builtin -->
+<phplint haltonfailure="false" tofile="dodgy_php_files.txt" cachefile="phplint.cache">
+	<!--
+	<fileset dir="${phing_lint.php_source_folder}">
+		<include name="**/*.php"/>
+	</fileset>
+	-->
+	<fileset refid="php_source_folders"/>
+</phplint>
+
+</target>
+
+</project>

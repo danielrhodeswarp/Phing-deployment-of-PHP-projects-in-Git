@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+
+<project name="git_pull_client" default="msg" basedir=".">
+
+<exec executable="dnsdomainname" outputProperty="domainname" />
+
+<!-- cheesy but load appropriate "server" include file -->
+<if>
+	<equals arg1="${domainname}" arg2="LIVESERVERNAME.COM" />
+	<then>
+		<import file="/some/path/on/live/server/git_pull_server_build.xml"/>
+	</then>
+	<else>
+		<import file="/some/path/on/dev/server/git_pull_server_build.xml"/>
+	</else>
+</if>
+
+</project>

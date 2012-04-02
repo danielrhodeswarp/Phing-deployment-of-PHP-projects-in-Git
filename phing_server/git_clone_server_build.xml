@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+
+<project name="git_clone_server">
+
+<target name="msg">
+    <echo msg="    Usage: phing pulloriginmaster  [pulls master branch]" />
+    <echo msg="OR  Usage: phing pulloriginbranch -DBRANCH=branchname  [pulls named branch]" />
+</target>
+
+<!--fileset for what to copy over to webroot from cloned git codebases-->
+<fileset dir="phing_build" id="allfiles">
+    <include name="**" />
+
+    <!--files and folders in cloned git source to exclude-->
+    <!--(could also, with git ignore rules, exclude things from the
+    repository *anyway* in which case this would be an extra safety step)-->
+        
+    <!--ignore Zend Studio project cruft-->
+    <exclude name=".project" />
+    <exclude name=".buildpath" />
+    <exclude name=".settings/**" />
+	
+	<!-- ignore Zend Framework cruft -->
+	<exclude name=".zfproject.xml" />
+	    
+    <!--so that the live docroot copy of the project is NOT a working repo instance!-->
+    <exclude name=".git/**" />
+    
+    <!--FOR TESTING ONLY!-->
+    <!--<exclude name="pull/**" />-->
+    
+</fileset>
+
+<target name="gitclone">
+    <delete dir="phing_build" />  <!--just in case lingering from last pull-->
+    <mkdir dir="phing_build" />
+    
+	<property name="repo.dir" value="phing_build" />
+	<resolvepath propertyName="repo.dir.resolved" file="${repo.dir}" />
+	
+	<gitclone 
+    repository="${repository.url}"
+    targetPath="${repo.dir.resolved}" />
+
+	<!-- switch branch (before copying over to ..) if necessary -->
+	<if>
+        <isset property="BRANCH" />
+        <then>
+            <!--<property name="gitBranchName"  value="${BRANCH}"  />-->
+            <gitcheckout
+   			 repository="${repo.dir.resolved}" 
+    			branchname="${BRANCH}"  />
+        </then>
+        <!--
+        <else>
+            <property name="gitBranchName"  value="master"  />
+        </else>
+        -->
+    </if>
+	
+</target>
+
+<!--<target name="copyover" depends="gitpull">-->
+<target name="copyover" depends="gitclone">
+	
+	<!-- delete *everything* (except this 'pull' folder
+	which now has the 'phing_build' folder that we need!) in .. first -->
+	<!--could possibly comment out this DELETE block to be less "hardcore"...-->
+	<!--<delete includeemptydirs="true">-->
+	<delete>		
+		<fileset dir="..">
+    		<exclude name="pull/**" />
+		</fileset>
+	</delete>
+
+	
+	
+	<copy todir="..">
+        <fileset refid="allfiles" />
+    </copy>
+    
+</target>
+
+<target name="git_y" depends="copyover">
+    <delete dir="phing_build" />
+    
+    <!--phing *possibly* executed as root so...-->
+    
+    <!--
+    <exec command="chown theusername -R *" dir=".." />
+    <exec command="chgrp theusername -R *" dir=".." />
+    -->
+    
+    <input propertyname="postDeployProcessing" validargs="y,n">Minify .js (and .css) files and obfuscate .php files as per given rules and as per your TESTING?
+    </input>
+    <phingcall target="post_deploy_processing_${postDeployProcessing}" />
+    
+</target>
+
+<target name="git_n">
+    <echo msg="Probably wise anyway, have a nice day." />
+</target>
+
+<target name="pulloriginmaster">
+    <input propertyname="chosenTarget" validargs="y,n">Do you *really* want to deploy the Git repo's master branch? Only the very brave (or foolish) attempt this!
+    </input>
+
+    <phingcall target="git_${chosenTarget}" />
+</target>
+
+<target name="pulloriginbranch">
+
+    <fail unless="BRANCH" message="Branch not specified! Use: phing pulloriginbranch -DBRANCH=branchname" />
+
+    <!-- above fail task won't catch [phing pulloriginbranch -DBRANCH=] (ie. branch specified but empty) so... -->
+    <if>
+        <equals arg1="${BRANCH}" arg2="" />
+        <then>
+            <fail message="You specified an empty branch name! Use: phing pulloriginbranch -DBRANCH=branchname " />
+        </then>
+    </if>
+
+    <input propertyname="chosenTarget" validargs="y,n">Do you *really* want to deploy the Git repo's '${BRANCH}' branch? Only the very brave (or foolish) attempt this!
+    </input>
+
+    <phingcall target="git_${chosenTarget}" />
+</target>
+
+<target name="post_deploy_processing_n">
+    <echo msg="As you wish. Your deployed instance is now 'pure' and identical to the repo." />
+</target>
+
+<target name="post_deploy_processing_y">
+
+	<property name="uniqueSuffix" value="FARTBONG" />
+	
+	<!--rename source folders so that target folders
+	(which should be same name as source folders - so that compressed files can *overwrite*
+	the original files) can be made-->
+	
+<copy todir="${phing_lint.js_source_folder}${uniqueSuffix}" >
+	<fileset dir="${phing_lint.js_source_folder}">
+	</fileset>
+</copy>
+
+<copy todir="${phing_lint.css_source_folder}${uniqueSuffix}" >
+	<fileset dir="${phing_lint.css_source_folder}">
+	</fileset>
+</copy>
+	
+	<delete dir="${phing_lint.js_source_folder}"/>
+	<delete dir="${phing_lint.css_source_folder}"/>
+	
+	<property name="phing_lint.js_source_folder" override="true" value="${phing_lint.js_source_folder}${uniqueSuffix}" />
+	<property name="phing_lint.css_source_folder" override="true" value="${phing_lint.css_source_folder}${uniqueSuffix}" />
+	<echo msg="${phing_lint.js_source_folder}"/>
+	<echo msg="${phing_lint.css_source_folder}"/>
+	
+	
+	<input propertyname="minificationStrategy" validargs="jsmin,yui">Which JavaScript minification strategy?
+    </input>
+	
+	
+	<phingcall target="jsmin_${minificationStrategy}" />
+	<phingcall target="jsmin_css" />
+	
+	<!--cleanup renamed source folders-->
+	<delete dir="${phing_lint.js_source_folder}"/>
+	<delete dir="${phing_lint.css_source_folder}"/>
+	
+	
+	<!-- obfuscate any specified .php files -->
+	
+	<!-- loop through files, and call subtask task with set param and absparam -->
+	<foreach param="filename" absparam="absfilename" target="obfuscate_subtask">
+		<fileset dir="..">	<!-- put this '..' setting into the client? -->
+			<patternset refid="php_files_to_obfuscate" />	<!--mandatory settings in client-->
+		</fileset>
+	</foreach>
+	
+</target>
+
+<target name="obfuscate_subtask">
+	<!--
+	<echo msg="filename: ${filename}, absfilename: ${absfilename}"/>
+	-->
+	
+	<!-- get directory bit so we can create it with mkdir -->
+	<!--<exec command="dirname ${filename}" outputProperty="directorypart" />
+	<mkdir dir="${phing_lint.js_output_folder_dynamictools}/${directorypart}" />
+		-->
+	
+	<exec error="/dev/null" command="php /usr/bin/or/wherever/you/put/it/obfuscate_php_with_fopo.php ${absfilename} 2 > ${absfilename} " />
+	
+</target>
+
+</project>

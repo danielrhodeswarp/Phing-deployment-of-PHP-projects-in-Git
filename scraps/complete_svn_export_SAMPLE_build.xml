@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+
+<project name="pull_something" default="msg" basedir=".">
+
+<target name="msg">
+    <echo msg="    Usage: phing pullfromtrunk  [exports SVN trunk]" />
+    <echo msg="OR  Usage: phing pullfrombranch -DBRANCH=branchname  [exports SVN branch]" />
+</target>
+
+<!--fileset for what to copy over to webroot from exported svn codebases-->
+<fileset dir="phing_build" id="allfiles">
+    <include name="**" />
+
+    <!--files in exported svn copy to exclude-->
+    <!--(could also, with svn ignore rules, exclude things from the
+    repository *anyway* in which case this would be an extra safety step)-->
+    <!--
+    <exclude name=".htaccess" />
+    <exclude name="cp/.htaccess" />
+    -->
+    
+    <!--ignore Zend Studio project cruft-->
+    <exclude name=".project" />
+    <exclude name=".buildpath" />
+    <exclude name=".settings" />
+
+    <!--folders in webroot to exclude-->
+    <!--(could also, with svn ignore rules, exclude things from the
+    repository *anyway* in which case this would be an extra safety step)-->
+    <!--
+    <exclude name="img/**" />
+    <exclude name="cp/img/**" />
+    <exclude name="pdfs/**" />
+    -->
+</fileset>
+
+<!--may need password="whatever" for at least the first time on the svnexport task-->
+<!--(but that doesn't seem to work anyway on the Linode box... hmmm....)-->
+<target name="svnexport">
+    <delete dir="phing_build" />  <!--just in case-->
+
+    <if>
+        <isset property="BRANCH" />
+        <then>
+            <property name="trunkOrBranchBit"  value="branches/${BRANCH}"  />
+        </then>
+        <else>
+            <property name="trunkOrBranchBit"  value="trunk"  />
+        </else>
+    </if>
+
+    <svnexport username="theusername" repositoryurl="svn+ssh://theusername@localhost/srv/svn/thereponame/${trunkOrBranchBit}" todir="phing_build"/>
+</target>
+
+<target name="copyover" depends="svnexport">
+    <copy todir="..">
+        <fileset refid="allfiles" />
+    </copy>
+</target>
+
+<target name="svn_y" depends="copyover">
+    <delete dir="phing_build" />
+    <!--phing possibly executed as root so...-->
+    
+    <exec command="chown theusername -R *" dir=".." />
+    <exec command="chgrp theusername -R *" dir=".." />
+    
+</target>
+
+<target name="svn_n">
+    <echo msg="Probably wise anyway, have a nice day." />
+</target>
+
+<target name="pullfromtrunk">
+    <input propertyname="chosenTarget" validargs="y,n">Do you *really* want to deploy the SVN trunk? Only the very brave (or foolish) attempt this!
+    </input>
+
+    <phingcall target="svn_${chosenTarget}" />
+</target>
+
+<target name="pullfrombranch">
+    <fail unless="BRANCH" message="Branch not specified! Use: phing pullfrombranch -DBRANCH=branchname" />
+
+    <!-- above fail task won't catch [phing pullfrombranch -DBRANCH=] (ie. branch specified but empty) so... -->
+    <if>
+        <equals arg1="${BRANCH}" arg2="" />
+        <then>
+            <fail message="You specified an empty branch name! Use: phing pullfrombranch -DBRANCH=branchname " />
+        </then>
+    </if>
+
+    <input propertyname="chosenTarget" validargs="y,n">Do you *really* want to deploy the SVN branch '${BRANCH}'? Only the very brave (or foolish) attempt this!
+    </input>
+
+    <phingcall target="svn_${chosenTarget}" />
+</target>
+
+</project>

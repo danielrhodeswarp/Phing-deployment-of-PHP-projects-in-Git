@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+
+<project name="git_clone_client" default="msg" basedir=".">
+
+<exec executable="dnsdomainname" outputProperty="domainname" />
+
+<!-- cheesy but load appropriate "server" include files -->
+<if>
+	<equals arg1="${domainname}" arg2="YOURLIVESERVERNAME.COM" />
+	<then>
+		<import file="/wherever/you/put/it/on/your/live/server/git_clone_server_build.xml"/>
+		<import file="/wherever/you/put/it/on/your/live/server/phing_lint_server_build.xml"/>
+	</then>
+	<else>
+		<import file="/wherever/you/put/it/on/your/dev/server/git_clone_server_build.xml"/>
+		<import file="/wherever/you/put/it/on/your/dev/server/phing_lint_server_build.xml"/>
+	</else>
+</if>
+
+<!-- git URL hosting this project -->
+<property name="repository.url"  value="gituser@gitserver.com:~/mygitrepos/somerepo.git"  />
+
+<!-- note that everything is relative to wherever THIS file is -->
+<property name="phing_lint.js_source_folder" value="../public/js" />
+<property name="phing_lint.css_source_folder" value="../public/css" />
+
+<!-- ACTUAL folders for the output of minifying JS / CSS to go in -->
+<!-- also relative to wherever this file is -->
+<!-- these will probably be the same as the above js and css source folders -->
+<!-- ie. the actual place where js and css files should go in this project -->
+<property name="phing_lint.js_output_folder_jsmin" value="../public/js" />
+<property name="phing_lint.js_output_folder_yuic" value="../public/js" />
+<property name="phing_lint.css_output_folder_yuic" value="../public/css" />
+
+
+<!--excludes relative from phing_lint.js_source_folder.
+leave empty to minify EVERYTHING-->
+<!--here you can exclude things like already minified JS and etc-->
+<patternset id="js_for_minifiers_to_ignore">
+	<exclude name="**/tinymce/**/*.js"/>
+	<exclude name="**/tiny_mce/**/*.js"/>
+	<exclude name="**/scriptaculous/**/*.js"/>
+	<exclude name="**/jquery/**/*.js"/>
+</patternset>
+
+<!--includes relative from .. folder
+( you MUST [exclude name="**"/] to obfuscate NOTHING)-->
+<patternset id="php_files_to_obfuscate" >
+	<exclude name="**"/>
+</patternset>
+
+</project>
