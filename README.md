@@ -44,3 +44,7 @@ Good points
 NOTE
 
 Phing build script for deploy should go in its own folder in the project source
+
+TODO
+
+- need option to *preserve* certain folders (ie. imagebase folder etc) and have them not get touched during deploy
