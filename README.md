@@ -48,3 +48,5 @@ Phing build script for deploy should go in its own folder in the project source
 TODO
 
 - need option to *preserve* certain folders (ie. imagebase folder etc) and have them not get touched during deploy
+
+- add ignoring of metadata folders of common IDEs eg. NetBeans. Currently ignoring Zend Studio / Framework cruft
