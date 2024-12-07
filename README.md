@@ -1,4 +1,4 @@
-# Phing-deployment-of-PHP-projects-in-Git
+# phing-deployment-of-php-projects-in-git
 
 What does it do?
 
