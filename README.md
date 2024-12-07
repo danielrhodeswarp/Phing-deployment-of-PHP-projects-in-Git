@@ -1,5 +1,4 @@
-[proper docs coming soon...]
-
+# Phing-deployment-of-PHP-projects-in-Git
 
 What does it do?
 
